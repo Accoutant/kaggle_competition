@@ -1,1 +1,2 @@
 # kaggle_competition
+这个项目的队长sb
