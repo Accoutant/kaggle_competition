@@ -110,6 +110,7 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
 
 def load_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather,
                       station, is_train=True):
+    """加载数据"""
     data = merge_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather,
                       station)
     # 删除缺失值
@@ -129,14 +130,17 @@ def load_data(train, train_history, client, gas_prices, electricity, historical_
         print('X.shape', X.shape)
         Y = data['target']
         Y = np.array(Y)
+        output = (row_id, X, Y)
         with open("train_data.pkl", 'wb') as f:
-            pickle.dump((row_id, X, Y), f)
+            pickle.dump(output, f)
     else:
         X = data.drop(columns=['row_id'])
         X = np.array(X)
         print('X.shape', X.shape)
+        output = (row_id, X)
         with open("test_data.pkl", 'wb') as f:
-            pickle.dump((row_id, X), f)
+            pickle.dump(output, f)
+    return output
 
 
 if __name__ == '__main__':
@@ -150,4 +154,4 @@ if __name__ == '__main__':
     forecast_weather = pd.read_csv('../data/forecast_weather.csv', parse_dates=['forecast_datetime'],
                                    usecols=forecast_cols)
     station = pd.read_csv('../data/weather_station_to_county_mapping.csv', usecols=station_cols)
-    load_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather, station)
+    output = load_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather, station)
