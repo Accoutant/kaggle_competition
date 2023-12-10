@@ -5,8 +5,11 @@ import xgboost as xgb
 from xgboost import XGBClassifier, plot_importance
 import pickle
 import matplotlib as plt
+
 with open("../data/train_data_selected.pkl", "rb") as f:
     X, Y = pickle.load(f)
+
+
 def make_teain_test(X, Y, seed, rate):
     idx = int(rate * X.shape[0])
     X_train = X[:idx]
@@ -18,7 +21,10 @@ def make_teain_test(X, Y, seed, rate):
     np.random.shuffle(shuffled_indices)
     X_train, Y_train = X_train[shuffled_indices], Y_train[shuffled_indices]
     return (X_train, Y_train), (X_test, Y_test)
+
 (X_train, y_train), (X_test, y_test) = make_teain_test(X, Y, 1, 0.7)
+
+
 if torch.cuda.is_available():
     device = 'cuda'
 else:
@@ -34,6 +40,7 @@ clf.fit(X = X_train,
         eval_set = [(X_train, y_train), (X_test, y_test)],
         verbose = True
        )
+print(clf.predict(X_test))
 print(f'Early stopping on best iteration #{clf.best_iteration} with MAE error on validation set of {clf.best_score:.2f}')
 # results = clf.evals_result()
 # train_mae, val_mae = results["validation_0"]["mae"], results["validation_1"]["mae"]

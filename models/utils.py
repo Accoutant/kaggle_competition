@@ -18,8 +18,9 @@ def split_date(data: DataFrame, col: str):
     return data
 
 
+# 未筛选特征所用到的列
 train_cols = ['county', 'target', 'is_business', 'product_type', 'is_consumption', 'datetime', 'row_id']
-test_cols = ['county', 'is_business', 'product_type', 'is_consumption', 'datetime', 'row_id']
+test_cols = ['county', 'is_business', 'product_type', 'is_consumption', 'prediction_datetime', 'row_id']
 train_history_cols = ['target', 'county', 'is_business', 'product_type', 'is_consumption', 'datetime']
 client_cols = ['product_type', 'county', 'eic_count', 'installed_capacity', 'is_business', 'date']
 gas_cols = ['forecast_date', 'lowest_price_per_mwh', 'highest_price_per_mwh']
@@ -27,6 +28,17 @@ electricity_cols = ['forecast_date', 'euros_per_mwh']
 forecast_cols = ['latitude', 'longitude', 'hours_ahead', 'temperature', 'dewpoint', 'cloudcover_high', 'cloudcover_low', 'cloudcover_mid', 'cloudcover_total', '10_metre_u_wind_component', '10_metre_v_wind_component', 'forecast_datetime', 'direct_solar_radiation', 'surface_solar_radiation_downwards', 'snowfall', 'total_precipitation']
 historical_cols = ['datetime', 'temperature', 'dewpoint', 'rain', 'snowfall', 'surface_pressure','cloudcover_total','cloudcover_low','cloudcover_mid','cloudcover_high','windspeed_10m','winddirection_10m','shortwave_radiation','direct_solar_radiation','diffuse_radiation','latitude','longitude']
 station_cols = ['longitude', 'latitude', 'county']
+
+# 筛选后特征所用到的列
+train_cols_selected = ['county', 'target', 'is_business', 'product_type', 'is_consumption', 'datetime', 'row_id']
+test_cols_selected = ['county', 'is_business', 'product_type', 'is_consumption', 'prediction_datetime', 'row_id']
+train_history_cols_selected = ['target', 'county', 'is_business', 'product_type', 'is_consumption', 'datetime']
+client_cols_selected = ['product_type', 'county', 'eic_count', 'installed_capacity', 'is_business', 'date']
+gas_cols_selected = ['forecast_date', 'lowest_price_per_mwh', 'highest_price_per_mwh']
+electricity_cols_selected = ['forecast_date', 'euros_per_mwh']
+forecast_cols_selected = ['latitude', 'longitude', 'hours_ahead', 'temperature', 'dewpoint', 'cloudcover_low', 'cloudcover_total', 'forecast_datetime', 'direct_solar_radiation', 'surface_solar_radiation_downwards', 'snowfall']
+historical_cols_selected = ['datetime', 'temperature', 'dewpoint', 'snowfall', 'cloudcover_total','cloudcover_low','shortwave_radiation','direct_solar_radiation','diffuse_radiation','latitude','longitude']
+station_cols_selected = ['longitude', 'latitude', 'county']
 
 
 def merge_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather, station):
@@ -57,8 +69,12 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
 
     """处理historical_weather数据"""
     historical_weather['datetime'] = historical_weather['datetime'].apply(lambda x: x + pd.Timedelta(37, 'H'))
-    historical_weather['latitude'] = historical_weather['latitude'].round(1)   # 将经纬度取一位小数
-    historical_weather['longitude'] = historical_weather['longitude'].round(1)
+    historical_weather['latitude'] = historical_weather['latitude'].astype(float)            # 转为float类型才能取一位小数
+    historical_weather['longitude'] = historical_weather['longitude'].astype(float)
+    historical_weather.loc[:, 'latitude'] = historical_weather.loc[:, 'latitude'].round(1)   # 将经纬度取一位小数
+    historical_weather.loc[:, 'longitude'] = historical_weather.loc[:, 'longitude'].round(1)
+    station['latitude'] = station['latitude'].astype(float)
+    station['longitude'] = station['longitude'].astype(float)
     station.loc[:, 'longitude'] = station.loc[:, 'longitude'].round(1)
     station.loc[:, 'latitude'] = station.loc[:, 'latitude'].round(1)
     # 与station数据按照经纬度和时间拼接
@@ -70,6 +86,8 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
 
     """处理forecast_weather数据"""
     forecast_weather = forecast_weather[forecast_weather['hours_ahead'] >= 24]
+    forecast_weather['latitude'] = forecast_weather['latitude'].astype(float)            # 转为float类型才能取一位小数
+    forecast_weather['longitude'] = forecast_weather['longitude'].astype(float)
     forecast_weather.loc[:, 'longitude'] = forecast_weather.loc[:, 'longitude'].round(1)
     forecast_weather.loc[:, 'latitude'] = forecast_weather.loc[:, 'latitude'].round(1)
     forecast_weather = pd.merge(left=forecast_weather, right=station, on=['latitude', 'longitude'])
@@ -141,6 +159,20 @@ def load_data(train, train_history, client, gas_prices, electricity, historical_
         with open("test_data.pkl", 'wb') as f:
             pickle.dump(output, f)
     return output
+
+
+def make_train_test(X, Y, seed, rate):
+    """划分训练集和测试集，并且打乱"""
+    idx = int(rate * X.shape[0])
+    X_train = X[:idx]
+    Y_train = Y[:idx]
+    X_test = X[idx:]
+    Y_test = Y[idx:]
+    shuffled_indices = np.arange(X_train.shape[0])
+    np.random.seed(seed)
+    np.random.shuffle(shuffled_indices)
+    X_train, Y_train = X_train[shuffled_indices], Y_train[shuffled_indices]
+    return (X_train, Y_train), (X_test, Y_test)
 
 
 if __name__ == '__main__':
