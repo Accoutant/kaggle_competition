@@ -5,12 +5,13 @@ import xgboost as xgb
 from xgboost import XGBClassifier, plot_importance
 import pickle
 import matplotlib as plt
+from sklearn.metrics import mean_absolute_error
 
 with open("../data/train_data_selected.pkl", "rb") as f:
     X, Y = pickle.load(f)
 
 
-def make_teain_test(X, Y, seed, rate):
+def make_train_test(X, Y, seed, rate):
     idx = int(rate * X.shape[0])
     X_train = X[:idx]
     Y_train = Y[:idx]
@@ -22,7 +23,8 @@ def make_teain_test(X, Y, seed, rate):
     X_train, Y_train = X_train[shuffled_indices], Y_train[shuffled_indices]
     return (X_train, Y_train), (X_test, Y_test)
 
-(X_train, y_train), (X_test, y_test) = make_teain_test(X, Y, 1, 0.7)
+
+(X_train, y_train), (X_test, y_test) = make_train_test(X, Y, 1, 0.7)
 
 
 if torch.cuda.is_available():
@@ -40,7 +42,7 @@ clf.fit(X = X_train,
         eval_set = [(X_train, y_train), (X_test, y_test)],
         verbose = True
        )
-print(clf.predict(X_test))
+
 print(f'Early stopping on best iteration #{clf.best_iteration} with MAE error on validation set of {clf.best_score:.2f}')
 # results = clf.evals_result()
 # train_mae, val_mae = results["validation_0"]["mae"], results["validation_1"]["mae"]
@@ -52,4 +54,6 @@ print(f'Early stopping on best iteration #{clf.best_iteration} with MAE error on
 # plt.ylabel("MAE Loss")
 # plt.title("XGBoost MAE Loss")
 # plt.show()
-
+y_pred = clf.predict(X_test)
+test_loss = mean_absolute_error(y_test, y_pred)
+print(test_loss)
