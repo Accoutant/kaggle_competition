@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import torch
 import xgboost as xgb
-from xgboost import XGBClassifier, plot_importance
+from xgboost import plot_importance
 import pickle
 import matplotlib as plt
 from sklearn.metrics import mean_absolute_error

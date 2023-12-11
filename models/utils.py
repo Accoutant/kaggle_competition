@@ -79,7 +79,7 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
     station.loc[:, 'latitude'] = station.loc[:, 'latitude'].round(1)
     # 与station数据按照经纬度和时间拼接
     historical_weather = pd.merge(left=historical_weather, right=station, how='left', on=['latitude', 'longitude'])
-    historical_weather.dropna(subset='county', inplace=True)
+    # historical_weather.dropna(subset='county', inplace=True)
     historical_weather.drop(columns=['latitude', 'longitude'], inplace=True)
     # 由于一个county对应多个天气站点，将同一个county同一时间的数据平均
     historical_weather = historical_weather.groupby(by=['datetime', 'county']).mean()
@@ -92,7 +92,7 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
     forecast_weather.loc[:, 'latitude'] = forecast_weather.loc[:, 'latitude'].round(1)
     forecast_weather = pd.merge(left=forecast_weather, right=station, on=['latitude', 'longitude'])
     # 去除缺失值以及删除无用列
-    forecast_weather.dropna(subset='county', inplace=True)
+    # forecast_weather.dropna(subset='county', inplace=True)
     forecast_weather.drop(
         columns=['latitude', 'longitude', 'hours_ahead'],
         inplace=True)
@@ -131,31 +131,28 @@ def load_data(train, train_history, client, gas_prices, electricity, historical_
     """加载数据"""
     data = merge_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather,
                       station)
-    # 删除缺失值
-    data.dropna(how='any', inplace=True)
     # 删除多余列
     data.drop(columns=['datetime'], inplace=True)
     # one-hot编码
     data = pd.get_dummies(data, columns=['is_business', 'product_type', 'is_consumption'], dtype=float)
-    print(data.columns)
-    print(data)
     # 生成nparray数组
-    row_id = data['row_id']
-    row_id = np.array(row_id)
-    if is_train:             # 删除多余列
+    if is_train:
+        # 删除缺失值
+        data.dropna(subset=['target'], inplace=True)
         X = data.drop(columns=['row_id', 'target'])
+        features = list(X.columns)
         X = np.array(X)
         print('X.shape', X.shape)
         Y = data['target']
         Y = np.array(Y)
-        output = (row_id, X, Y)
+        output = (features, X, Y)
         with open("train_data.pkl", 'wb') as f:
             pickle.dump(output, f)
     else:
         X = data.drop(columns=['row_id'])
         X = np.array(X)
         print('X.shape', X.shape)
-        output = (row_id, X)
+        output = X
         with open("test_data.pkl", 'wb') as f:
             pickle.dump(output, f)
     return output
