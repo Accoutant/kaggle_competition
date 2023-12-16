@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 import pickle
+from functools import reduce
 
 
 def split_date(data: DataFrame, col: str):
@@ -41,6 +42,14 @@ historical_cols_selected = ['datetime', 'temperature', 'dewpoint', 'snowfall', '
 station_cols_selected = ['longitude', 'latitude', 'county']
 
 
+def structure_time(data, date_col, target_col, day):
+    """构造时间位移函数"""
+    data_new = data.copy()
+    data_new[date_col] = data_new[date_col] + pd.Timedelta(day, 'D')
+    data_new.rename(columns={target_col: target_col+'_'+str(day)}, inplace=True)
+    return data_new
+
+
 def merge_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather, station):
     """处理train数据"""
     if 'datetime' in train.columns:
@@ -49,9 +58,25 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
         train.rename(columns={'prediction_datetime': 'datetime'}, inplace=True)
     train = split_date(train, 'datetime')  # 拆分时间
 
-    """处理train_history数据"""
-    train_history['datetime'] = train_history['datetime'].apply(lambda x: x + pd.Timedelta(2, 'D'))
-    train_history.rename(columns={'target': 'target_used'}, inplace=True)
+    """构造target 2、3、4、5、6、7、14天数据"""
+    target2 = structure_time(train_history[['datetime', 'county', 'is_business', 'product_type', 'is_consumption', 'target']],
+                             'datetime', 'target', 2)
+    target3 = structure_time(train_history[['datetime', 'county', 'is_business', 'product_type', 'is_consumption', 'target']],
+                             'datetime', 'target', 3)
+    target4 = structure_time(train_history[['datetime', 'county', 'is_business', 'product_type', 'is_consumption', 'target']],
+                             'datetime', 'target', 4)
+    target5 = structure_time(train_history[['datetime', 'county', 'is_business', 'product_type', 'is_consumption', 'target']],
+                             'datetime', 'target', 5)
+    target6 = structure_time(train_history[['datetime', 'county', 'is_business', 'product_type', 'is_consumption', 'target']],
+                             'datetime', 'target', 6)
+    target7 = structure_time(train_history[['datetime', 'county', 'is_business', 'product_type', 'is_consumption', 'target']],
+                             'datetime', 'target', 7)
+    target14 = structure_time(train_history[['datetime', 'county', 'is_business', 'product_type', 'is_consumption', 'target']],
+                              'datetime', 'target', 14)
+
+    """构造target过去第2天的均值，按county取平均"""
+    target_mean = target2.groupby(by=['datetime', 'is_business', 'product_type', 'is_consumption']).mean()['target_2']
+    target_mean.rename('target_mean', inplace=True)
 
     """处理client数据"""
     client['datetime'] = client['date'].apply(lambda x: x+pd.Timedelta(2, 'D'))  # 将day向前移两天
@@ -82,7 +107,16 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
     # historical_weather.dropna(subset='county', inplace=True)
     historical_weather.drop(columns=['latitude', 'longitude'], inplace=True)
     # 由于一个county对应多个天气站点，将同一个county同一时间的数据平均
-    historical_weather = historical_weather.groupby(by=['datetime', 'county']).mean()
+    historical_weather_local = historical_weather.groupby(by=['datetime', 'county']).mean()
+
+    """构造全局天气均值"""
+    historical_weather_date = historical_weather[['datetime', 'temperature', 'dewpoint', 'snowfall', 'cloudcover_total',
+                                                  'cloudcover_low', 'shortwave_radiation', 'direct_solar_radiation',
+                                                  'diffuse_radiation']].groupby(by=['datetime']).mean()
+    col_new = {}
+    for col in historical_weather_date.columns:
+        col_new[col] = col + '_global'
+    historical_weather_date.rename(columns=col_new, inplace=True)
 
     """处理forecast_weather数据"""
     forecast_weather = forecast_weather[forecast_weather['hours_ahead'] >= 24]
@@ -114,13 +148,17 @@ def merge_data(train, train_history, client, gas_prices, electricity, historical
     forecast_weather = forecast_weather.groupby(by=['datetime', 'county']).mean()
 
     """开始拼接数据"""
-    data = pd.merge(left=train, right=train_history, how='left', on=['datetime', 'county', 'is_business', 'product_type',
-                                                                     'is_consumption'])
+    data = reduce(lambda left, right: pd.merge(left, right, how='left',
+                  on=['datetime', 'county', 'is_business', 'product_type', 'is_consumption']),
+                  [train, target2, target3, target4, target5, target6, target7, target14])
+    data = pd.merge(left=data, right=target_mean, how='left', on=['datetime', 'is_business',
+                                                                  'product_type', 'is_consumption'])
     data = pd.merge(left=data, right=client, how='left', on=['product_type', 'county',
                                                              'is_business', 'year', 'month', 'day'])
     data = pd.merge(left=data, right=gas_prices, how='left', on=['year', 'month', 'day'])
     data = pd.merge(left=data, right=electricity, how='left', on='datetime')
-    data = pd.merge(left=data, right=historical_weather, how='left', on=['datetime', 'county'])
+    data = pd.merge(left=data, right=historical_weather_local, how='left', on=['datetime', 'county'])
+    data = pd.merge(left=data, right=historical_weather_date, how='left', on=['datetime'])
     data = pd.merge(left=data, right=forecast_weather, how='left', on=['datetime', 'county'])
 
     return data
