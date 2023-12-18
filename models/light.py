@@ -4,6 +4,7 @@ import pickle
 from utils import make_train_test, load_data
 from sklearn.metrics import mean_absolute_error
 import matplotlib.pyplot as plt
+import os
 
 # 未筛选特征所用到的列
 train_cols = ['county', 'target', 'is_business', 'product_type', 'is_consumption', 'datetime', 'row_id']
@@ -36,12 +37,13 @@ class LightXGB:
     def __init__(self):
         self.model = lgb.LGBMRegressor(objective='regression', n_estimators=100)
 
-    def fit(self, X_train, y_train, features):
+    def fit(self, X_train, y_train, X_test, y_test, features):
         self.model.fit(X_train, y_train, feature_name=features)
-
-    def predict(self, X_test):
         y_pred = self.model.predict(X_test)
-        print(mean_absolute_error(y_pred, y_test))
+        print("mean_absolute_error in test set:", mean_absolute_error(y_pred, y_test))
+
+    def predict(self, X):
+        y_pred = self.model.predict(X)
         return y_pred
 
     def importance(self, max_num):
@@ -50,6 +52,6 @@ class LightXGB:
 
 
 model = LightXGB()
-model.fit(X_train, y_train, features)
+model.fit(X_train, y_train, X_test, y_test, features)
 model.predict(X_test)
 model.importance(20)
