@@ -172,7 +172,7 @@ def load_data(train, train_history, client, gas_prices, electricity, historical_
     # 删除多余列
     data.drop(columns=['datetime'], inplace=True)
     # one-hot编码
-    data = pd.get_dummies(data, columns=['is_business', 'product_type', 'is_consumption'], dtype=float)
+    # data = pd.get_dummies(data, columns=['is_business', 'product_type', 'is_consumption'], dtype=float)
     # 生成nparray数组
     if is_train:
         # 删除缺失值
@@ -210,15 +210,3 @@ def make_train_test(X, Y, seed, rate):
     return (X_train, Y_train), (X_test, Y_test)
 
 
-if __name__ == '__main__':
-    train = pd.read_csv('../data/train.csv', parse_dates=['datetime'], usecols=train_cols)
-    train_history = pd.read_csv('../data/train.csv', parse_dates=['datetime'], usecols=train_history_cols)
-    client = pd.read_csv('../data/client.csv', parse_dates=['date'], usecols=client_cols)
-    gas_prices = pd.read_csv('../data/gas_prices.csv', parse_dates=['forecast_date'], usecols=gas_cols)
-    electricity = pd.read_csv('../data/electricity_prices.csv', parse_dates=['forecast_date'], usecols=electricity_cols)
-    historical_weather = pd.read_csv('../data/historical_weather.csv', parse_dates=['datetime'],
-                                     usecols=historical_cols)
-    forecast_weather = pd.read_csv('../data/forecast_weather.csv', parse_dates=['forecast_datetime'],
-                                   usecols=forecast_cols)
-    station = pd.read_csv('../data/weather_station_to_county_mapping.csv', usecols=station_cols)
-    output = load_data(train, train_history, client, gas_prices, electricity, historical_weather, forecast_weather, station)
